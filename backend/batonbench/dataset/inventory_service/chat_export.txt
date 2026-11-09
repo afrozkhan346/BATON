@@ -1,0 +1,4 @@
+[2026-06-18 10:14] A. Sample: Hey team, I'm handing over the Auth module. B. Sample is now owning the Auth module going forward.
+[2026-06-18 10:15] B. Sample: Confirmed, Auth module owned by B. Sample now. I will review the JWT tokens.
+[2026-06-18 14:22] DevOps Engineer: Notice for anyone deploying: Deploy script needs a manual env fix before running migrations.
+[2026-06-18 14:25] B. Sample: Got it, we need to export DATABASE_URL manually before triggering deploy.

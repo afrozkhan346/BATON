@@ -1,0 +1,10 @@
+Sprint 14 Notes - Inventory Service Team
+Date: 2026-05-02
+Participants: A. Sample, B. Sample
+
+Summary:
+- Core inventory tracking across warehouses is live and healthy.
+- The sync endpoint was left unfinished.
+- Sync work stopped here; waiting on the rate-limit decision.
+- Current status: blocked until rate-limiting approach is decided.
+- No successor has been assigned to own the sync endpoint resumption.

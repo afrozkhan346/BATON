@@ -22,7 +22,7 @@ PAUSED_KEYWORDS = [
 
 
 class GapQuestionOutput(BaseModel):
-    follow_up_question: str
+    follow_up_question: str = "What are the next steps and required conditions to resolve this?"
 
 
 def load_gap_prompt() -> str:
