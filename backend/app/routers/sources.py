@@ -9,6 +9,7 @@ from app.schemas import SourceResponse
 from app.services.ingest import ingest_document, IngestionError
 from app.services.extract import process_and_persist_project_claims
 from app.services.evidence import verify_project_claims
+from app.services.gaps import detect_and_persist_project_gaps
 
 router = APIRouter()
 
@@ -86,6 +87,9 @@ def process_project(id: str, db: Session = Depends(get_db)):
     # 2. Evidence Verification (Layer 1 String Match + Layer 2 Semantic Check)
     verified_claims = verify_project_claims(id, db)
 
+    # 3. Knowledge Gap Detection
+    created_gaps = detect_and_persist_project_gaps(id, db)
+
     unsupported_count = sum(1 for c in verified_claims if c.status == "UNSUPPORTED")
     needs_review_count = sum(1 for c in verified_claims if c.status == "NEEDS_REVIEW")
 
@@ -95,7 +99,8 @@ def process_project(id: str, db: Session = Depends(get_db)):
         "claims_extracted": len(created_claims),
         "claims_verified_pending_review": needs_review_count,
         "claims_unsupported": unsupported_count,
-        "message": f"Extracted {len(created_claims)} claims ({needs_review_count} ready for review, {unsupported_count} unsupported).",
+        "gaps_detected": len(created_gaps),
+        "message": f"Processed pipeline: {len(created_claims)} claims, {len(created_gaps)} knowledge gaps detected.",
     }
 
 
