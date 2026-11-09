@@ -10,6 +10,7 @@ from app.services.ingest import ingest_document, IngestionError
 from app.services.extract import process_and_persist_project_claims
 from app.services.evidence import verify_project_claims
 from app.services.gaps import detect_and_persist_project_gaps
+from app.services.conflicts import detect_and_persist_project_conflicts
 
 router = APIRouter()
 
@@ -90,7 +91,11 @@ def process_project(id: str, db: Session = Depends(get_db)):
     # 3. Knowledge Gap Detection
     created_gaps = detect_and_persist_project_gaps(id, db)
 
+    # 4. Conflict Detection
+    detected_conflicts = detect_and_persist_project_conflicts(id, db)
+
     unsupported_count = sum(1 for c in verified_claims if c.status == "UNSUPPORTED")
+    conflict_count = sum(1 for c in verified_claims if c.status == "CONFLICT")
     needs_review_count = sum(1 for c in verified_claims if c.status == "NEEDS_REVIEW")
 
     return {
@@ -99,8 +104,9 @@ def process_project(id: str, db: Session = Depends(get_db)):
         "claims_extracted": len(created_claims),
         "claims_verified_pending_review": needs_review_count,
         "claims_unsupported": unsupported_count,
+        "conflicts_detected": len(detected_conflicts),
         "gaps_detected": len(created_gaps),
-        "message": f"Processed pipeline: {len(created_claims)} claims, {len(created_gaps)} knowledge gaps detected.",
+        "message": f"Processed pipeline: {len(created_claims)} claims ({needs_review_count} pending review, {conflict_count} conflicts, {len(created_gaps)} gaps).",
     }
 
 
@@ -113,6 +119,7 @@ def process_status(id: str, db: Session = Depends(get_db)):
         .count()
     )
     claims_count = db.query(Claim).filter(Claim.project_id == id).count()
+    conflicts_count = db.query(Claim).filter(Claim.project_id == id, Claim.status == "CONFLICT").count()
     gaps_count = db.query(Gap).filter(Gap.project_id == id).count()
 
     return {
@@ -121,5 +128,5 @@ def process_status(id: str, db: Session = Depends(get_db)):
         "chunks_processed": chunks_count,
         "claims_extracted": claims_count,
         "gaps_found": gaps_count,
-        "conflicts_found": 0,
+        "conflicts_found": conflicts_count,
     }
