@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.schemas import ExtractedClaim, ExtractionResult
 from app.services.llm import llm_service
 from app.db import Claim, Chunk, Source, Project
+from app.services.sensitive import screen_and_redact, enforce_source_authorization
 
 logger = logging.getLogger("baton.extract")
 PROMPT_PATH = os.path.join(os.path.dirname(__file__), "..", "prompts", "extract.md")
@@ -67,24 +68,32 @@ def extract_claims_from_chunk(
 
 
 def process_and_persist_project_claims(project_id: str, db: Session) -> List[Claim]:
-    """Extracts claims from all unprocessed chunks in a project and persists them as NEEDS_REVIEW."""
-    sources = db.query(Source).filter(
-        Source.project_id == project_id,
-        Source.restricted == False,  # P2: Exclude restricted sources
-    ).all()
+    """Extracts claims from all unprocessed chunks in a project and persists them as NEEDS_REVIEW.
+    Includes P2 sensitive screening and authorization filtering.
+    """
+    all_sources = db.query(Source).filter(Source.project_id == project_id).all()
+
+    # P2: Screen sources for authorization
+    authorized_sources = []
+    for s in all_sources:
+        if enforce_source_authorization(s, db):
+            authorized_sources.append(s)
 
     existing_claims_count = db.query(Claim).filter(Claim.project_id == project_id).count()
     claim_counter = existing_claims_count + 1
 
     all_created_claims: List[Claim] = []
 
-    for source in sources:
+    for source in authorized_sources:
         chunks = db.query(Chunk).filter(Chunk.source_id == source.id).order_by(Chunk.idx).all()
         extracted_from_source: List[tuple[ExtractedClaim, Chunk]] = []
 
         for chunk in chunks:
+            # P2: Screen and redact sensitive secrets/PII before chunk is sent to LLM
+            sanitized_text, _ = screen_and_redact(chunk.text, source_id=source.id, db=db)
+
             claims = extract_claims_from_chunk(
-                chunk_text=chunk.text,
+                chunk_text=sanitized_text,
                 source_name=source.filename,
                 location=chunk.location or f"chunk {chunk.idx}",
                 source_date=str(source.source_date) if source.source_date else None,

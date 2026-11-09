@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from typing import List
 from datetime import datetime
 import uuid
 
-from app.db import get_db, Claim, ReviewEvent
-from app.schemas import ClaimResponse, ClaimReviewRequest
+from app.db import get_db, Claim, ReviewEvent, Source
+from app.schemas import ClaimResponse, ClaimReviewRequest, ReviewEventResponse
 
 router = APIRouter()
 
@@ -38,14 +39,15 @@ def review_claim(id: str, payload: ClaimReviewRequest, db: Session = Depends(get
         claim.status = "REJECTED"
 
     elif payload.action == "edit":
-        if payload.statement:
-            claim.statement = payload.statement
+        if not payload.statement or not payload.statement.strip():
+            raise HTTPException(status_code=400, detail="Statement cannot be empty when editing a claim.")
+        claim.statement = payload.statement
         claim.status = "NEEDS_REVIEW"
 
-    elif payload.action == "add_context":
-        # Keeps status, records context in review events
-        pass
-
+    elif payload.action in ["approve", "add_context"]:
+        # If human approves or adds context
+        if payload.note:
+            claim.statement = f"{claim.statement} [Note: {payload.note}]"
     else:
         raise HTTPException(status_code=400, detail=f"Unknown review action: {payload.action}")
 
@@ -54,7 +56,7 @@ def review_claim(id: str, payload: ClaimReviewRequest, db: Session = Depends(get
         "status": claim.status,
     }
 
-    # Record audit event
+    # Record immutable audit event
     event = ReviewEvent(
         id=str(uuid.uuid4()),
         claim_id=claim.id,
@@ -67,6 +69,8 @@ def review_claim(id: str, payload: ClaimReviewRequest, db: Session = Depends(get
     db.commit()
     db.refresh(claim)
 
+    src = db.query(Source).filter(Source.id == claim.source_id).first() if claim.source_id else None
+
     return ClaimResponse(
         id=claim.id,
         project_id=claim.project_id,
@@ -74,7 +78,7 @@ def review_claim(id: str, payload: ClaimReviewRequest, db: Session = Depends(get
         type=claim.type,
         statement=claim.statement,
         source_id=claim.source_id,
-        source_name=None,
+        source_name=src.filename if src else None,
         chunk_id=claim.chunk_id,
         evidence_excerpt=claim.evidence_excerpt,
         source_date=claim.source_date,
@@ -85,3 +89,18 @@ def review_claim(id: str, payload: ClaimReviewRequest, db: Session = Depends(get
         conflict_with=claim.conflict_with or [],
         created_at=claim.created_at,
     )
+
+
+@router.get("/claims/{id}/history", response_model=List[ReviewEventResponse])
+def get_claim_review_history(id: str, db: Session = Depends(get_db)):
+    claim = db.query(Claim).filter(Claim.id == id).first()
+    if not claim:
+        raise HTTPException(status_code=404, detail="Claim not found")
+
+    events = (
+        db.query(ReviewEvent)
+        .filter(ReviewEvent.claim_id == id)
+        .order_by(ReviewEvent.created_at.asc())
+        .all()
+    )
+    return events

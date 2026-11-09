@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Literal, Optional, List, Any
+from typing import Literal, Optional, List, Dict, Any
 from datetime import datetime, date
 
 
@@ -58,6 +58,7 @@ class EvidenceCheck(BaseModel):
     exact_match: bool
     semantic: Literal["supports", "partial", "no"]
     note: Optional[str] = None
+    match_score: Optional[float] = None
 
 
 class SemanticCheckResult(BaseModel):
@@ -80,7 +81,7 @@ class ClaimResponse(BaseModel):
     location: Optional[str] = None
     confidence: Optional[str] = None
     status: Literal["VERIFIED", "NEEDS_REVIEW", "UNSUPPORTED", "CONFLICT", "REJECTED"] = "NEEDS_REVIEW"
-    evidence_check: Optional[EvidenceCheck] = None
+    evidence_check: Optional[Dict[str, Any]] = None
     conflict_with: List[str] = []
     created_at: datetime
 
@@ -90,6 +91,16 @@ class ClaimReviewRequest(BaseModel):
     action: Literal["verify", "edit", "reject", "approve", "add_context"]
     statement: Optional[str] = None
     note: Optional[str] = None
+
+
+class ReviewEventResponse(BaseModel):
+    id: str
+    claim_id: str
+    reviewer: str
+    action: str
+    before: Optional[Dict[str, Any]] = None
+    after: Optional[Dict[str, Any]] = None
+    created_at: datetime
 
 
 # --- Gap & Conflict Models ---
