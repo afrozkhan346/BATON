@@ -1,0 +1,5 @@
+Task,Owner,Status,Priority,Notes
+Auth Module,A. Sample,In Progress,High,JWT token verification with Argon2id
+Sync Endpoint,Unassigned,Blocked,Critical,Awaiting rate-limit design
+Deploy Pipeline,Team Lead,Done,Medium,Automated via Render CLI
+Database Migrations,A. Sample,Done,High,PostgreSQL schema v2 applied

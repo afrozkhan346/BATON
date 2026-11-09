@@ -1,0 +1,105 @@
+{
+  "project_name": "Inventory Service",
+  "expected_facts": [
+    {
+      "id": "F1",
+      "text": "PostgreSQL was selected as the database for relational reporting across tasks and owners.",
+      "source": "architecture_notes_v2.docx"
+    },
+    {
+      "id": "F2",
+      "text": "Redis caching layer was deferred to post-MVP release v2.",
+      "source": "roadmap.pdf"
+    },
+    {
+      "id": "F3",
+      "text": "Sync endpoint was paused waiting on the rate-limit decision.",
+      "source": "sprint_notes.txt"
+    },
+    {
+      "id": "F4",
+      "text": "Deploy script requires a manual environment variable fix.",
+      "source": "chat_export.txt"
+    },
+    {
+      "id": "F5",
+      "text": "JWT tokens with Argon2id are configured for authentication.",
+      "source": "architecture_notes_v2.docx"
+    }
+  ],
+  "known_gaps": [
+    {
+      "id": "G1",
+      "kind": "unexplained_decision",
+      "text": "No architectural decision record explains why rate-limiting was deferred."
+    },
+    {
+      "id": "G2",
+      "kind": "missing_owner",
+      "text": "Sync endpoint has no designated successor or owner."
+    },
+    {
+      "id": "G3",
+      "kind": "open_question",
+      "text": "Conditions required to resume the sync endpoint remain undefined."
+    }
+  ],
+  "known_conflicts": [
+    {
+      "id": "X1",
+      "kind": "ownership",
+      "text": "tasks.csv assigns Auth module to A. Sample whereas chat_export.txt assigns it to B. Sample."
+    }
+  ],
+  "ownership_items": [
+    {
+      "id": "O1",
+      "item": "Auth module",
+      "owner": "B. Sample (reassigned)"
+    },
+    {
+      "id": "O2",
+      "item": "Sync endpoint",
+      "owner": "Unassigned"
+    },
+    {
+      "id": "O3",
+      "item": "Deployment",
+      "owner": "Team Lead"
+    }
+  ],
+  "restricted_facts": [
+    {
+      "id": "R1",
+      "text": "sk-live99999999999999999999prod_secret_key",
+      "source": "restricted_credentials.txt"
+    }
+  ],
+  "successor_questions": [
+    {
+      "id": "Q1",
+      "question": "Which database was chosen and why?",
+      "expected_answer": "PostgreSQL was chosen for relational reporting queries across tasks and owners."
+    },
+    {
+      "id": "Q2",
+      "question": "Why is the sync endpoint paused?",
+      "expected_answer": "It was paused waiting on a rate-limit decision."
+    },
+    {
+      "id": "Q3",
+      "question": "Who owns the Auth module?",
+      "expected_answer": "There is a conflict between tasks.csv (A. Sample) and chat logs (B. Sample) that requires clarification."
+    },
+    {
+      "id": "Q4",
+      "question": "What is the status of the Redis cache layer?",
+      "expected_answer": "It was deferred to v2."
+    },
+    {
+      "id": "Q5",
+      "question": "Are there any manual steps required during deployment?",
+      "expected_answer": "Yes, the deploy script requires a manual environment variable fix."
+    }
+  ]
+}
