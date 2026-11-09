@@ -4,8 +4,11 @@ from typing import List, Optional
 import uuid
 import os
 
-from app.db import get_db, Source, Project
+from app.db import get_db, Source, Project, Chunk, Claim, Gap
 from app.schemas import SourceResponse
+from app.services.ingest import ingest_document, IngestionError
+from app.services.extract import process_and_persist_project_claims
+from app.services.evidence import verify_project_claims
 
 router = APIRouter()
 
@@ -23,16 +26,19 @@ async def upload_source(
         raise HTTPException(status_code=404, detail="Project not found")
 
     filename = file.filename or "unknown"
-    ext = filename.split(".")[-1].lower() if "." in filename else ""
-    if ext not in ["pdf", "docx", "txt", "csv"]:
-        raise HTTPException(status_code=400, detail="Unsupported file format. Supported: pdf, docx, txt, csv")
+    content = await file.read()
+
+    try:
+        extracted_chunks = ingest_document(filename, content)
+    except IngestionError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
 
     # Store file locally in uploads directory
     uploads_dir = os.path.join(os.getcwd(), "uploads", id)
     os.makedirs(uploads_dir, exist_ok=True)
     file_path = os.path.join(uploads_dir, filename)
-
-    content = await file.read()
     with open(file_path, "wb") as f:
         f.write(content)
 
@@ -43,9 +49,21 @@ async def upload_source(
         file_type=ext,
         owner=owner,
         restricted=restricted,
-        status="uploaded",
+        status="processed" if extracted_chunks else "uploaded",
     )
     db.add(source)
+
+    # Persist extracted chunks with location metadata
+    for c in extracted_chunks:
+        chunk_obj = Chunk(
+            id=str(uuid.uuid4()),
+            source_id=source.id,
+            idx=c["idx"],
+            text=c["text"],
+            location=c["location"],
+        )
+        db.add(chunk_obj)
+
     db.commit()
     db.refresh(source)
     return source
@@ -57,25 +75,46 @@ def list_sources(id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{id}/process", status_code=202)
-def process_project(id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def process_project(id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    # 1. AI Extraction
+    created_claims = process_and_persist_project_claims(id, db)
+
+    # 2. Evidence Verification (Layer 1 String Match + Layer 2 Semantic Check)
+    verified_claims = verify_project_claims(id, db)
+
+    unsupported_count = sum(1 for c in verified_claims if c.status == "UNSUPPORTED")
+    needs_review_count = sum(1 for c in verified_claims if c.status == "NEEDS_REVIEW")
+
     return {
         "job_id": f"job_{id[:8]}",
-        "status": "processing",
-        "message": "AI extraction and evidence verification pipeline started",
+        "status": "completed",
+        "claims_extracted": len(created_claims),
+        "claims_verified_pending_review": needs_review_count,
+        "claims_unsupported": unsupported_count,
+        "message": f"Extracted {len(created_claims)} claims ({needs_review_count} ready for review, {unsupported_count} unsupported).",
     }
 
 
 @router.get("/{id}/process/status")
 def process_status(id: str, db: Session = Depends(get_db)):
+    chunks_count = (
+        db.query(Chunk)
+        .join(Source, Chunk.source_id == Source.id)
+        .filter(Source.project_id == id)
+        .count()
+    )
+    claims_count = db.query(Claim).filter(Claim.project_id == id).count()
+    gaps_count = db.query(Gap).filter(Gap.project_id == id).count()
+
     return {
-        "status": "completed",
-        "progress_pct": 100,
-        "chunks_processed": 12,
-        "claims_extracted": 15,
-        "gaps_found": 3,
-        "conflicts_found": 1,
+        "status": "completed" if chunks_count > 0 else "idle",
+        "progress_pct": 100 if chunks_count > 0 else 0,
+        "chunks_processed": chunks_count,
+        "claims_extracted": claims_count,
+        "gaps_found": gaps_count,
+        "conflicts_found": 0,
     }

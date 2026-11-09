@@ -28,7 +28,26 @@ def test_projects_crud_and_dashboard():
     project_id = project["id"]
     assert project["name"] == "Inventory Service Test"
 
-    # 2. Get Dashboard
+    # 2. Upload a Source file (Multipart)
+    txt_file_content = b"Sprint 1: We implemented JWT auth.\nSprint 2: Paused sync endpoint."
+    upload_res = client.post(
+        f"/api/v1/projects/{project_id}/sources",
+        files={"file": ("sprint_notes.txt", txt_file_content, "text/plain")},
+        data={"owner": "Alice", "restricted": "false"},
+    )
+    assert upload_res.status_code == 201
+    source = upload_res.json()
+    assert source["filename"] == "sprint_notes.txt"
+    assert source["status"] == "processed"
+
+    # 3. List Sources
+    sources_res = client.get(f"/api/v1/projects/{project_id}/sources")
+    assert sources_res.status_code == 200
+    sources = sources_res.json()
+    assert len(sources) >= 1
+    assert any(s["filename"] == "sprint_notes.txt" for s in sources)
+
+    # 4. Get Dashboard
     dash_res = client.get(f"/api/v1/projects/{project_id}/dashboard")
     assert dash_res.status_code == 200
     dash = dash_res.json()
@@ -36,7 +55,7 @@ def test_projects_crud_and_dashboard():
     assert "claims_verified" in dash
     assert "needs_attention" in dash
 
-    # 3. Get Handover Report
+    # 5. Get Handover Report
     rep_res = client.get(f"/api/v1/projects/{project_id}/report")
     assert rep_res.status_code == 200
     report = rep_res.json()
