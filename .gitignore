@@ -31,8 +31,7 @@ env.bak/
 venv.bak/
 
 # Environment variables & secrets
-.env
-.env.*
+.env*
 !.env.example
 
 # Testing & Coverage
@@ -54,9 +53,13 @@ uploads/
 *.swo
 .DS_Store
 Thumbs.db
+*.log
 
-# Node / Frontend
-frontend/node_modules/
-frontend/.next/
-frontend/out/
-frontend/build/
+# Node & Frontend
+node_modules/
+coverage/
+
+# AI Studio & Git Bundles
+.aistudio/
+.aistudio
+*.bundle
