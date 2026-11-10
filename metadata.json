@@ -1,0 +1,6 @@
+{
+  "name": "BATON - Evidence-First Knowledge Handover Platform",
+  "description": "Award-winning, high-end interactive platform for knowledge handovers with verbatim source evidence verification, claim ledger, gap resolution, and Baton Continuity Index (BCI) benchmarking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
