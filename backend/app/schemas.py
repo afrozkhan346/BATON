@@ -1,6 +1,36 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import Literal, Optional, List, Dict, Any
 from datetime import datetime, date
+
+
+# --- Auth & User Schemas ---
+UserRole = Literal["admin", "project_manager", "employee"]
+
+
+class UserRegister(BaseModel):
+    email: str = Field(..., description="User email address")
+    password: str = Field(..., min_length=6, description="Password (min 6 characters)")
+    full_name: str = Field(..., min_length=2, description="Full Name")
+    role: UserRole = Field("employee", description="Role: admin | project_manager | employee")
+
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    full_name: str
+    role: str
+    created_at: datetime
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
 
 
 # --- Project Schemas ---

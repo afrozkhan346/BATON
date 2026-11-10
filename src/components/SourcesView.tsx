@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SourceDocument, ProcessStatus } from '../types/baton';
+import { SourceDocument, ProcessStatus, User } from '../types/baton';
 import {
   FileText,
   UploadCloud,
@@ -19,6 +19,7 @@ interface SourcesViewProps {
   onUploadFile: (file: File, restricted?: boolean) => void;
   onRunProcessing: () => void;
   processStatus: ProcessStatus;
+  currentUser?: User | null;
 }
 
 export const SourcesView: React.FC<SourcesViewProps> = ({
@@ -26,6 +27,7 @@ export const SourcesView: React.FC<SourcesViewProps> = ({
   onUploadFile,
   onRunProcessing,
   processStatus,
+  currentUser,
 }) => {
   const [dragActive, setDragActive] = useState(false);
   const [restrictedMode, setRestrictedMode] = useState(false);

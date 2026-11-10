@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db import init_db
-from app.routers import projects, sources, claims, gaps, review, report
+from app.routers import projects, sources, claims, gaps, review, report, auth
 
 
 @asynccontextmanager
@@ -48,6 +48,7 @@ app.include_router(claims.router, prefix="/api/v1", tags=["Claims"])
 app.include_router(gaps.router, prefix="/api/v1", tags=["Gaps"])
 app.include_router(review.router, prefix="/api/v1", tags=["Review"])
 app.include_router(report.router, prefix="/api/v1", tags=["Report"])
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 
 
 if __name__ == "__main__":

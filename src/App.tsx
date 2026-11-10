@@ -17,6 +17,7 @@ import { BatonBenchView } from './components/BatonBenchView';
 import { ReviewModal } from './components/ReviewModal';
 import { ResolveGapModal } from './components/ResolveGapModal';
 import { BackendDocsModal } from './components/BackendDocsModal';
+import { AuthModal } from './components/AuthModal';
 import { Footer } from './components/Footer';
 
 import {
@@ -25,13 +26,53 @@ import {
   INITIAL_CLAIMS,
   INITIAL_GAPS,
 } from './data/mockData';
-import { Claim, ClaimStatus, KnowledgeGap, SourceDocument, ProcessStatus, ProjectDashboardMetrics } from './types/baton';
+import {
+  Claim,
+  ClaimStatus,
+  KnowledgeGap,
+  SourceDocument,
+  ProcessStatus,
+  ProjectDashboardMetrics,
+  User,
+  UserRole,
+} from './types/baton';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isDark, setIsDark] = useState<boolean>(true);
   const [isLiveBackend, setIsLiveBackend] = useState<boolean>(false);
   const [isDocsOpen, setIsDocsOpen] = useState<boolean>(false);
+  const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
+
+  // Authentication & RBAC User State
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem('baton_auth');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.user) return parsed.user;
+      }
+    } catch {}
+    // Default initial persona: Project Manager (Rushikesh Bobade)
+    return {
+      id: 'usr-demo-pm',
+      email: 'pm@baton.ai',
+      full_name: 'Rushikesh Bobade',
+      role: 'project_manager',
+      created_at: new Date().toISOString(),
+    };
+  });
+
+  const [authToken, setAuthToken] = useState<string | null>(() => {
+    try {
+      const saved = localStorage.getItem('baton_auth');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.token || null;
+      }
+    } catch {}
+    return null;
+  });
 
   // Core Application Data State
   const [metrics, setMetrics] = useState<ProjectDashboardMetrics>(INITIAL_METRICS);
@@ -64,6 +105,60 @@ export default function App() {
       document.documentElement.classList.remove('dark');
     }
   }, [isDark]);
+
+  // Handle successful login or registration
+  const handleLoginSuccess = (user: User, token: string) => {
+    setCurrentUser(user);
+    setAuthToken(token);
+    try {
+      localStorage.setItem('baton_auth', JSON.stringify({ user, token }));
+    } catch {}
+  };
+
+  // Handle Logout
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setAuthToken(null);
+    try {
+      localStorage.removeItem('baton_auth');
+    } catch {}
+  };
+
+  // Handle Fast Demo Role Switcher
+  const handleQuickSwitchRole = (newRole: UserRole) => {
+    let switchedUser: User;
+    if (newRole === 'admin') {
+      switchedUser = {
+        id: 'usr-demo-admin',
+        email: 'admin@baton.ai',
+        full_name: 'Antigravity Admin',
+        role: 'admin',
+        created_at: new Date().toISOString(),
+      };
+    } else if (newRole === 'project_manager') {
+      switchedUser = {
+        id: 'usr-demo-pm',
+        email: 'pm@baton.ai',
+        full_name: 'Rushikesh Bobade',
+        role: 'project_manager',
+        created_at: new Date().toISOString(),
+      };
+    } else {
+      switchedUser = {
+        id: 'usr-demo-employee',
+        email: 'employee@baton.ai',
+        full_name: 'Afroz Khan',
+        role: 'employee',
+        created_at: new Date().toISOString(),
+      };
+    }
+    const token = `demo-token-${newRole}-${Date.now()}`;
+    setCurrentUser(switchedUser);
+    setAuthToken(token);
+    try {
+      localStorage.setItem('baton_auth', JSON.stringify({ user: switchedUser, token }));
+    } catch {}
+  };
 
   // Recalculate metrics whenever claims or gaps change
   const updateMetricsState = (newClaims: Claim[], newGaps: KnowledgeGap[]) => {
@@ -104,6 +199,8 @@ export default function App() {
   ) => {
     if (!selectedClaimForReview) return;
 
+    const reviewerName = currentUser?.full_name || 'Anonymous Reviewer';
+
     const updatedClaims = claims.map((c) => {
       if (c.id === selectedClaimForReview.id) {
         const newStatus: ClaimStatus = action === 'verify' ? 'VERIFIED' : action === 'edit' ? 'NEEDS_REVIEW' : 'REJECTED';
@@ -112,13 +209,13 @@ export default function App() {
           {
             id: `rev-${Date.now()}`,
             claim_id: c.id,
-            reviewer: 'Rushikesh Bobade',
+            reviewer: reviewerName,
             action,
             previous_status: c.status,
             new_status: newStatus,
             statement_before: c.statement,
             statement_after: updatedStatement || c.statement,
-            note: note || `Reviewer action: ${action}`,
+            note: note || `Reviewer action: ${action} by ${reviewerName} (${currentUser?.role || 'user'})`,
             created_at: new Date().toISOString(),
           },
         ];
@@ -140,6 +237,8 @@ export default function App() {
 
   // Handler: Resolve Knowledge Gap
   const handleResolveGap = (gapId: string, resolutionNote: string, owner?: string) => {
+    const resolverName = currentUser?.full_name || 'Anonymous Engineer';
+
     const updatedGaps = gaps.map((g) => {
       if (g.id === gapId) {
         return {
@@ -148,7 +247,7 @@ export default function App() {
           resolution_note: resolutionNote,
           owner: owner || g.owner,
           resolved_at: new Date().toISOString(),
-          resolved_by: 'Rushikesh Bobade',
+          resolved_by: resolverName,
         };
       }
       return g;
@@ -166,7 +265,7 @@ export default function App() {
       filename: file.name,
       file_type: (['pdf', 'docx', 'csv', 'txt'].includes(extension) ? extension : 'txt') as any,
       file_size: `${(file.size / 1024).toFixed(1)} KB`,
-      owner: 'Rushikesh Bobade',
+      owner: currentUser?.full_name || 'Project Manager',
       status: restricted ? 'redacted' : 'processed',
       total_chunks: Math.max(1, Math.ceil(file.size / 1024 / 2)),
       restricted: !!restricted,
@@ -222,6 +321,10 @@ export default function App() {
         onOpenDocs={() => setIsDocsOpen(true)}
         isLiveBackend={isLiveBackend}
         setIsLiveBackend={setIsLiveBackend}
+        currentUser={currentUser}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        onLogout={handleLogout}
+        onQuickSwitchRole={handleQuickSwitchRole}
       />
 
       {/* Main Container */}
@@ -261,6 +364,7 @@ export default function App() {
               onUploadFile={handleUploadFile}
               onRunProcessing={handleRunProcessing}
               processStatus={processStatus}
+              currentUser={currentUser}
             />
           )}
 
@@ -287,6 +391,7 @@ export default function App() {
               gaps={gaps}
               isApproved={isApproved}
               onApprove={() => setIsApproved(true)}
+              currentUser={currentUser}
             />
           )}
 
@@ -298,7 +403,7 @@ export default function App() {
       {selectedClaimForReview && (
         <ReviewModal
           claim={selectedClaimForReview}
-          reviewerName="Rushikesh Bobade"
+          reviewerName={currentUser?.full_name || 'Rushikesh Bobade'}
           isOpen={true}
           onClose={() => setSelectedClaimForReview(null)}
           onSubmit={handleReviewSubmit}
@@ -309,18 +414,26 @@ export default function App() {
       {selectedGapForResolution && (
         <ResolveGapModal
           gap={selectedGapForResolution}
-          reviewerName="Rushikesh Bobade"
+          reviewerName={currentUser?.full_name || 'Rushikesh Bobade'}
           isOpen={true}
           onClose={() => setSelectedGapForResolution(null)}
           onResolve={handleResolveGap}
         />
       )}
 
+      {/* Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+        apiBaseUrl={isLiveBackend ? 'http://127.0.0.1:8000' : 'http://127.0.0.1:8000'}
+      />
+
       {/* Backend API Contract & Blueprint Modal */}
       <BackendDocsModal
         isOpen={isDocsOpen}
         onClose={() => setIsDocsOpen(false)}
-        apiBaseUrl={isLiveBackend ? 'http://localhost:8000' : 'https://api.baton.evidence/v1'}
+        apiBaseUrl={isLiveBackend ? 'http://127.0.0.1:8000' : 'https://api.baton.evidence/v1'}
       />
 
       {/* Footer */}

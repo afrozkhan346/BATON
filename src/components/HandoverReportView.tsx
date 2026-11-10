@@ -1,5 +1,5 @@
 import React from 'react';
-import { Claim, KnowledgeGap, ProjectDashboardMetrics } from '../types/baton';
+import { Claim, KnowledgeGap, ProjectDashboardMetrics, User } from '../types/baton';
 import {
   FileCheck2,
   CheckCircle2,
@@ -20,6 +20,7 @@ interface HandoverReportViewProps {
   gaps: KnowledgeGap[];
   isApproved: boolean;
   onApprove: () => void;
+  currentUser?: User | null;
 }
 
 export const HandoverReportView: React.FC<HandoverReportViewProps> = ({
@@ -28,12 +29,16 @@ export const HandoverReportView: React.FC<HandoverReportViewProps> = ({
   gaps,
   isApproved,
   onApprove,
+  currentUser,
 }) => {
   const verifiedClaims = claims.filter((c) => c.status === 'VERIFIED');
   const uncertainClaims = claims.filter((c) => c.status !== 'VERIFIED' && c.status !== 'REJECTED');
   const openGaps = gaps.filter((g) => g.status === 'open');
 
+  const canApprove = currentUser?.role === 'admin' || currentUser?.role === 'project_manager';
+
   const handleApproveWithCelebration = () => {
+    if (!canApprove) return;
     onApprove();
     try {
       confetti({
@@ -92,17 +97,27 @@ export const HandoverReportView: React.FC<HandoverReportViewProps> = ({
           </button>
 
           {!isApproved ? (
-            <button
-              onClick={handleApproveWithCelebration}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:brightness-105 text-slate-950 font-bold text-xs transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95"
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Formally Approve Handover</span>
-            </button>
+            canApprove ? (
+              <button
+                onClick={handleApproveWithCelebration}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:brightness-105 text-slate-950 font-bold text-xs transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Formally Approve Handover</span>
+              </button>
+            ) : (
+              <div
+                title="Only Project Managers or Admins can approve the final dossier"
+                className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-300 dark:border-slate-700 text-xs font-mono flex items-center gap-1.5 cursor-not-allowed"
+              >
+                <Lock className="w-3.5 h-3.5 text-slate-400" />
+                <span>Sign-off requires PM/Admin</span>
+              </div>
+            )
           ) : (
             <div className="px-4 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-800 dark:text-emerald-300 font-mono text-xs flex items-center gap-2 font-bold">
               <CheckCircle2 className="w-4 h-4" />
-              <span>Certified by Rushikesh Bobade</span>
+              <span>Certified by {currentUser?.full_name || 'Project Manager'}</span>
             </div>
           )}
         </div>

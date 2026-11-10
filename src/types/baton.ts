@@ -139,3 +139,19 @@ export interface ProcessStatus {
   conflicts_found: number;
   message?: string;
 }
+
+export type UserRole = 'admin' | 'project_manager' | 'employee';
+
+export interface User {
+  id: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+  created_at: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+}
